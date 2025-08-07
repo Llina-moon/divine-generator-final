@@ -1,4 +1,4 @@
-
+from docx.shared import Pt
 from flask import Flask, render_template, request, send_file
 from docx import Document
 import io
@@ -28,7 +28,7 @@ def replace_variables_in_docx(template_path, values_dict):
                     if var in inline[i].text:
                         inline[i].text = inline[i].text.replace(var, values_dict.get(var, var))
                         inline[i].font.name = 'Times New Roman'
-                        inline[i].font.size = docx.shared.Pt(11)
+                        inline[i].font.size = Pt(11)
                         inline[i].font.color.rgb = docx.shared.RGBColor(0, 0, 0)
     return doc
 

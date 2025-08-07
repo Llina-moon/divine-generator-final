@@ -20,16 +20,24 @@ VARIABLES = [
 
 def replace_variables_in_docx(template_path, values_dict):
     doc = Document(template_path)
+
     for paragraph in doc.paragraphs:
+        full_text = "".join(run.text for run in paragraph.runs)
+        updated_text = full_text
         for var in VARIABLES:
-            if var in paragraph.text:
-                inline = paragraph.runs
-                for i in range(len(inline)):
-                    if var in inline[i].text:
-                        inline[i].text = inline[i].text.replace(var, values_dict.get(var, var))
-                        inline[i].font.name = 'Times New Roman'
-                        inline[i].font.size = Pt(11)
-                        inline[i].font.color.rgb = RGBColor(0, 0, 0)
+            updated_text = updated_text.replace(var, values_dict.get(var, var))
+
+        # Если текст изменился, перезаписываем весь абзац одним run
+        if full_text != updated_text:
+            # Удаляем старые runs
+            for _ in range(len(paragraph.runs)):
+                paragraph.runs[0]._element.getparent().remove(paragraph.runs[0]._element)
+            # Добавляем новый run
+            run = paragraph.add_run(updated_text)
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(11)
+            run.font.color.rgb = RGBColor(0, 0, 0)
+
     return doc
 
 @app.route("/", methods=["GET", "POST"])

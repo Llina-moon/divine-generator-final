@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Документы готовы — Divine Music Group</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Montserrat', sans-serif;
+      background: linear-gradient(to bottom right, #7a0c0c, #000);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 40px;
+      border-radius: 20px;
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    p {
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+
+    a.button {
+      display: inline-block;
+      background-color: #fff;
+      color: #7a0c0c;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: bold;
+      text-decoration: none;
+      margin: 10px;
+      transition: 0.3s ease;
+    }
+
+    a.button:hover {
+      background-color: #ffeded;
+      transform: scale(1.05);
+    }
+
+    .logo {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+
+    .logo img {
+      max-width: 150px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="/static/logo.png" alt="Divine Music Group logo">
+    </div>
+    <h1>Документы готовы 🎉</h1>
+    <p>Ты на шаг ближе к тому, чтобы звучать везде. Добро пожаловать в Divine Music Group.</p>
+    <a href="/download/{{ contract }}" class="button">📄 Скачать договор</a>
+    <a href="/download/{{ appendix }}" class="button">📎 Скачать приложение</a>
+    <br>
+    <a href="/" class="button">← Назад к форме</a>
+  </div>
+</body>
+</html>

@@ -1,4 +1,4 @@
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor
 from flask import Flask, render_template, request, send_file
 from docx import Document
 import io

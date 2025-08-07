@@ -29,7 +29,7 @@ def replace_variables_in_docx(template_path, values_dict):
                         inline[i].text = inline[i].text.replace(var, values_dict.get(var, var))
                         inline[i].font.name = 'Times New Roman'
                         inline[i].font.size = Pt(11)
-                        inline[i].font.color.rgb = docx.shared.RGBColor(0, 0, 0)
+                        inline[i].font.color.rgb = RGBColor(0, 0, 0)
     return doc
 
 @app.route("/", methods=["GET", "POST"])

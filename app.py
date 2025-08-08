@@ -1,75 +1,111 @@
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for
 from docx import Document
 from docx.shared import Pt, RGBColor
-import io
 import os
-import uuid
+import re
+from datetime import date
 
 app = Flask(__name__)
 
-GENERATED_DIR = "generated"
-os.makedirs(GENERATED_DIR, exist_ok=True)
+TEMPLATES = {
+    "contract": "contract_template.docx",
+    "appendix": "appendix_template.docx",
+}
+OUTPUT_DIR = "generated"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-VARIABLES = [
-    "{ФИО}",
-    "{Документ}",
-    "{Адрес}",
-    "{ИНН}",
-    "{СНИЛС}",
-    "{Банковские реквизиты}",
-    "{Номер договора}",
-    "{id artist / id contract}",
-    "{Электронная почта лицензиара}",
-    "{Дата}",
-]
+PLACEHOLDER_RE = re.compile(r"\{[^{}]+\}")  # всё внутри фигурных скобок
 
-def _replace_in_paragraph(paragraph, mapping):
-    # Простая замена по всем плейсхолдерам в рамках одного параграфа
-    for run in paragraph.runs:
-        text = run.text
-        for k, v in mapping.items():
-            if k in text:
-                text = text.replace(k, v)
-        run.text = text
-        # (опционально) выставим шрифт
-        run.font.name = 'Times New Roman'
+def extract_placeholders(paths):
+    """Собираем уникальные плейсхолдеры из всех шаблонов."""
+    found = set()
+    for p in paths:
+        doc = Document(p)
+        # параграфы
+        for par in doc.paragraphs:
+            found.update(PLACEHOLDER_RE.findall(par.text))
+        # таблицы
+        for tbl in doc.tables:
+            for row in tbl.rows:
+                for cell in row.cells:
+                    for par in cell.paragraphs:
+                        found.update(PLACEHOLDER_RE.findall(par.text))
+    return sorted(found)
+
+def replace_in_paragraph(paragraph, mapping):
+    """Надёжная замена по параграфу: собираем весь текст, меняем, заново заливаем в один run."""
+    full_text = "".join(run.text for run in paragraph.runs) or paragraph.text
+    if not full_text:
+        return
+    new_text = full_text
+    for k, v in mapping.items():
+        new_text = new_text.replace(k, v)
+    if new_text != full_text:
+        # чистим рансы и записываем заново
+        for _ in range(len(paragraph.runs)):
+            paragraph.runs[0].clear() ; paragraph.runs[0].text = ""
+            paragraph.runs[0].font.name = "Times New Roman"
+            paragraph.runs[0].font.size = Pt(11)
+            paragraph.runs[0].font.color.rgb = RGBColor(0, 0, 0)
+            # удаляем оставшиеся runs
+            if len(paragraph.runs) > 1:
+                paragraph.runs[1]._element.getparent().remove(paragraph.runs[1]._element)
+        paragraph.clear()
+        run = paragraph.add_run(new_text)
+        run.font.name = "Times New Roman"
         run.font.size = Pt(11)
         run.font.color.rgb = RGBColor(0, 0, 0)
 
-def _replace_in_doc(doc, mapping):
-    # Параграфы
+def replace_in_doc(doc, mapping):
     for p in doc.paragraphs:
-        _replace_in_paragraph(p, mapping)
-    # Таблицы
-    for table in doc.tables:
-        for row in table.rows:
+        replace_in_paragraph(p, mapping)
+    for tbl in doc.tables:
+        for row in tbl.rows:
             for cell in row.cells:
                 for p in cell.paragraphs:
-                    _replace_in_paragraph(p, mapping)
+                    replace_in_paragraph(p, mapping)
     return doc
-
-def generate_file(template_path, values, out_prefix):
-    doc = Document(template_path)
-    _replace_in_doc(doc, values)
-    fn = f"{out_prefix}_{uuid.uuid4().hex}.docx"
-    out_path = os.path.join(GENERATED_DIR, fn)
-    doc.save(out_path)
-    return fn
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    # Собираем все плейсхолдеры из шаблонов, чтобы показать их в форме
+    placeholders = extract_placeholders(TEMPLATES.values())
+
     if request.method == "POST":
-        values = {var: request.form.get(var.strip("{}"), "") for var in VARIABLES}
-        # Генерация двух документов
-        contract_name = generate_file("contract_template.docx", values, "contract")
-        appendix_name = generate_file("appendix_template.docx", values, "appendix")
-        # Переходим на страницу успеха с двумя ссылками
-        return render_template("success.html", contract=contract_name, appendix=appendix_name)
-    return render_template("form.html", variables=VARIABLES)
+        # значения из формы; добавим «умолчалки»
+        values = {}
+        for ph in placeholders:
+            key = ph.strip("{}")
+            values[ph] = request.form.get(key, "").strip()
+
+        # авто-значения, если пусто
+        if not values.get("{Дата}"):
+            values["{Дата}"] = date.today().strftime("%d.%m.%Y")
+
+        # Генерация документов
+        generated_files = {}
+        for key, path in TEMPLATES.items():
+            doc = Document(path)
+            doc = replace_in_doc(doc, values)
+            out_name = "Лицензионный договор.docx" if key == "contract" else "Приложение №1.1.docx"
+            out_path = os.path.join(OUTPUT_DIR, out_name)
+            doc.save(out_path)
+            generated_files[key] = out_name
+
+        return render_template(
+            "success.html",
+            contract=generated_files["contract"],
+            appendix=generated_files["appendix"],
+        )
+
+    # GET — показать форму
+    # Преобразуем вид для удобного рендера (без фигурных скобок)
+    clean_list = [ph.strip("{}") for ph in placeholders]
+    return render_template("form.html", variables=clean_list)
 
 @app.route("/download/<path:filename>")
 def download(filename):
-    return send_from_directory(GENERATED_DIR, filename, as_attachment=True)
+    return send_from_directory(OUTPUT_DIR, filename, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(debug=True)
